@@ -1,0 +1,266 @@
+===== app.js =====
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const passport = require('passport');
+
+require('./app_api/models/db');
+require('./app_api/config/passport');
+
+const indexRouter = require('./app_server/routes/index');
+const apiRouter = require('./app_api/routes/index');
+
+const app = express();
+
+app.set('views', path.join(__dirname, 'app_server', 'views'));
+app.set('view engine', 'hbs');
+
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(passport.initialize());
+
+app.use('/', indexRouter);
+app.use('/api', apiRouter);
+
+app.use(function(req, res, next) {
+  next(createError(404));
+});
+
+module.exports = app;
+
+
+===== Controllers/main.js =====
+module.exports.index = function(req, res) {
+    res.render('index', { title: 'Travlr Getaways' });
+};
+
+module.exports.about = function(req, res) {
+    res.render('about', { title: 'About Travlr' });
+};
+
+
+===== Controllers/travel.js =====
+const trips = require('../data/trips.json');
+
+module.exports.listTrips = function(req, res) {
+    res.render('travel', { title: 'Vacation Packages', trips });
+};
+
+
+===== Routes/index.js =====
+const express = require('express');
+const router = express.Router();
+const ctrlMain = require('../controllers/main');
+const ctrlTravel = require('../controllers/travel');
+
+router.get('/', ctrlMain.index);
+router.get('/about', ctrlMain.about);
+router.get('/travel', ctrlTravel.listTrips);
+
+module.exports = router;
+
+
+===== View (travel.hbs) =====
+<h1>{{title}}</h1>
+
+<div class="trips-container">
+    {{#each trips}}
+    <div class="trip-card">
+        <h2>{{this.title}}</h2>
+        <img src="/images/{{this.image}}" alt="Destination image"/>
+        <p>{{this.description}}</p>
+        <p><strong>Price: </strong>{{this.price}}</p>
+        <p><strong>Duration: </strong>{{this.duration}}</p>
+    </div>
+    {{/each}}
+</div>
+
+
+===== DB Connection (db.js) =====
+const mongoose = require('mongoose');
+const dbURI = 'mongodb://localhost:27017/travlr';
+
+mongoose.connect(dbURI);
+mongoose.connection.on('connected', () => console.log('Mongoose connected'));
+
+
+===== Trip Model =====
+const mongoose = require('mongoose');
+
+const tripSchema = new mongoose.Schema({
+    code: { type: String, required: true },
+    name: String,
+    duration: String,
+    price: Number,
+    description: String,
+    image: String
+});
+
+mongoose.model('trips', tripSchema);
+
+
+===== API Controller =====
+const mongoose = require('mongoose');
+const Trip = mongoose.model('trips');
+
+module.exports.readTrips = async function(req, res) {
+    const trips = await Trip.find({});
+    res.status(200).json(trips);
+};
+
+module.exports.readTrip = async function(req, res) {
+    const trip = await Trip.findById(req.params.tripId);
+    res.status(200).json(trip);
+};
+
+module.exports.createTrip = async function(req, res) {
+    const newTrip = await Trip.create(req.body);
+    res.status(201).json(newTrip);
+};
+
+module.exports.updateTrip = async function(req, res) {
+    const updatedTrip = await Trip.findByIdAndUpdate(
+        req.params.tripId,
+        req.body,
+        { new: true }
+    );
+    res.status(200).json(updatedTrip);
+};
+
+module.exports.deleteTrip = async function(req, res) {
+    await Trip.findByIdAndDelete(req.params.tripId);
+    res.status(204).json(null);
+};
+
+
+===== API Routes =====
+const express = require('express');
+const router = express.Router();
+const ctrlTravel = require('../controllers/travel');
+const auth = require('../middleware/auth');
+
+router.get('/trips', ctrlTravel.readTrips);
+router.get('/trips/:tripId', ctrlTravel.readTrip);
+router.post('/trips', auth, ctrlTravel.createTrip);
+router.put('/trips/:tripId', auth, ctrlTravel.updateTrip);
+router.delete('/trips/:tripId', auth, ctrlTravel.deleteTrip);
+
+module.exports = router;
+
+
+===== Passport Config =====
+const passport = require('passport');
+const mongoose = require('mongoose');
+const User = mongoose.model('users');
+const LocalStrategy = require('passport-local').Strategy;
+
+passport.use(new LocalStrategy({
+    usernameField: 'email'
+}, (email, password, done) => {
+    User.findOne({ email }, (err, user) => {
+        if (err) return done(err);
+        if (!user || !user.validPassword(password)) {
+            return done(null, false);
+        }
+        return done(null, user);
+    });
+}));
+
+
+===== Auth Middleware =====
+const jwt = require('jsonwebtoken');
+
+module.exports = (req, res, next) => {
+    const header = req.headers.authorization;
+
+    if (!header) return res.status(401).json({ message: "Unauthorized" });
+
+    const token = header.split(" ")[1];
+    jwt.verify(token, "SECRET_KEY", (err, payload) => {
+        if (err) return res.status(401).json({ message: "Unauthorized" });
+
+        req.user = payload;
+        next();
+    });
+};
+
+
+===== Angular Trip Data Service =====
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class TripDataService {
+
+  constructor(private http: HttpClient) {}
+
+  getTrips() {
+    return this.http.get('/api/trips');
+  }
+
+  getTrip(id: string) {
+    return this.http.get('/api/trips/' + id);
+  }
+
+  addTrip(trip: any) {
+    return this.http.post('/api/trips', trip);
+  }
+
+  updateTrip(id: string, trip: any) {
+    return this.http.put('/api/trips/' + id, trip);
+  }
+
+  deleteTrip(id: string) {
+    return this.http.delete('/api/trips/' + id);
+  }
+}
+
+
+===== Angular Trip List Component =====
+import { Component, OnInit } from '@angular/core';
+import { TripDataService } from '../trip-data.service';
+
+@Component({
+  selector: 'app-trip-list',
+  templateUrl: './trip-list.component.html'
+})
+export class TripListComponent implements OnInit {
+
+  trips: any[] = [];
+
+  constructor(private tripService: TripDataService) {}
+
+  ngOnInit(): void {
+    this.tripService.getTrips().subscribe(data => {
+      this.trips = data as any[];
+    });
+  }
+}
+
+
+===== trips.json =====
+[
+  {
+    "code": "GRK001",
+    "name": "Greek Adventure",
+    "duration": "7 days",
+    "price": 1800,
+    "description": "Explore ancient ruins and beaches.",
+    "image": "greece.jpg"
+  },
+  {
+    "code": "LDN002",
+    "name": "London Highlights",
+    "duration": "5 days",
+    "price": 1500,
+    "description": "Tour Big Ben, London Eye, and more.",
+    "image": "london.jpg"
+  }
+]
