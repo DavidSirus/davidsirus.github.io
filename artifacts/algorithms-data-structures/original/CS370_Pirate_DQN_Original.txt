@@ -1,0 +1,307 @@
+"""
+CS 370 – Pirate NPC Deep Q-Learning Project
+Author: David Sirus
+Description:
+    This script implements a Deep Q-Learning (DQN) agent that controls a pirate
+    non-player character (NPC) in a grid-based treasure hunt environment.
+    The pirate learns to navigate around obstacles to reach the treasure
+    while trying to beat the human player.
+
+"""
+
+import random
+from collections import deque
+import numpy as np
+
+# If you're running this in a fresh environment, you may need:
+# pip install tensorflow==2.*   
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+
+
+# -----------------------------
+# Environment: Pirate Treasure GridWorld
+# -----------------------------
+class PirateTreasureEnv:
+    """
+    Simple grid world environment for the pirate NPC.
+
+    - Grid is N x N.
+    - Pirate starts at a fixed or random location.
+    - Treasure is at a fixed location.
+    - Obstacles are fixed cells that cannot be entered.
+    - Episode ends when pirate reaches treasure or max steps reached.
+    """
+
+    def __init__(self, grid_size=5, max_steps=50):
+        self.grid_size = grid_size
+        self.max_steps = max_steps
+
+        # Define treasure and obstacles (you can tweak these for variations)
+        self.treasure_pos = (grid_size - 1, grid_size - 1)  # bottom-right corner
+        self.obstacles = {(1, 1), (2, 2), (3, 1)}  # example obstacle positions
+
+        # Action space: 0=up, 1=down, 2=left, 3=right
+        self.action_space_n = 4
+
+        # State: (pirate_row, pirate_col)
+        self.state = None
+        self.steps_taken = 0
+
+    def reset(self):
+        """Reset the environment for a new episode."""
+        # Start pirate at top-left corner (can randomize if desired)
+        self.state = (0, 0)
+        self.steps_taken = 0
+        return self._get_state_vector()
+
+    def step(self, action):
+        """
+        Take a step in the environment.
+
+        Returns:
+            next_state (np.array): next state vector
+            reward (float): reward for this step
+            done (bool): whether the episode is finished
+            info (dict): extra information
+        """
+        self.steps_taken += 1
+        row, col = self.state
+
+        # Apply action
+        if action == 0:      # up
+            row -= 1
+        elif action == 1:    # down
+            row += 1
+        elif action == 2:    # left
+            col -= 1
+        elif action == 3:    # right
+            col += 1
+
+        # Stay within bounds
+        row = max(0, min(self.grid_size - 1, row))
+        col = max(0, min(self.grid_size - 1, col))
+
+        # Check for obstacle: if obstacle, revert to previous state
+        if (row, col) in self.obstacles:
+            row, col = self.state
+
+        self.state = (row, col)
+
+        # Compute reward
+        reward = -1.0  # small negative reward to encourage faster solutions
+        done = False
+
+        if self.state == self.treasure_pos:
+            reward = 50.0  # big positive reward for finding treasure
+            done = True
+        elif self.steps_taken >= self.max_steps:
+            reward = -10.0  # penalty for taking too long
+            done = True
+
+        info = {}
+        return self._get_state_vector(), reward, done, info
+
+    def _get_state_vector(self):
+        """
+        Convert (row, col) into a one-hot or normalized vector.
+        Here we just normalize coordinates to [0,1] range.
+        """
+        row, col = self.state
+        return np.array([row / (self.grid_size - 1),
+                         col / (self.grid_size - 1)], dtype=np.float32)
+
+
+# -----------------------------
+# Deep Q-Network (DQN) Agent
+# -----------------------------
+class DQNAgent:
+    """
+    Deep Q-Learning agent for the pirate NPC.
+
+    Key elements:
+    - Neural network approximating Q(s,a)
+    - Experience replay buffer
+    - Epsilon-greedy policy for exploration
+    """
+
+    def __init__(
+        self,
+        state_size,
+        action_size,
+        learning_rate=0.001,
+        gamma=0.99,
+        epsilon=1.0,
+        epsilon_min=0.01,
+        epsilon_decay=0.995,
+        batch_size=64,
+        memory_size=2000,
+    ):
+        self.state_size = state_size
+        self.action_size = action_size
+
+        self.gamma = gamma  # discount factor
+        self.epsilon = epsilon  # exploration rate
+        self.epsilon_min = epsilon_min
+        self.epsilon_decay = epsilon_decay
+
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+
+        # Replay memory
+        self.memory = deque(maxlen=memory_size)
+
+        # Build the Q-network
+        self.model = self._build_model()
+
+    def _build_model(self):
+        """
+        Build a simple feedforward neural network for Q-value approximation.
+        """
+        model = Sequential()
+        model.add(Dense(32, input_dim=self.state_size, activation="relu"))
+        model.add(Dense(32, activation="relu"))
+        model.add(Dense(self.action_size, activation="linear"))
+
+        model.compile(loss="mse", optimizer=Adam(learning_rate=self.learning_rate))
+        return model
+
+    def remember(self, state, action, reward, next_state, done):
+        """
+        Store experience tuple in replay memory.
+        """
+        self.memory.append((state, action, reward, next_state, done))
+
+    def act(self, state):
+        """
+        Choose an action using epsilon-greedy policy.
+        """
+        if np.random.rand() <= self.epsilon:
+            # Explore: choose random action
+            return random.randrange(self.action_size)
+        # Exploit: choose best action from Q-network
+        q_values = self.model.predict(state[np.newaxis, :], verbose=0)
+        return np.argmax(q_values[0])
+
+    def replay(self):
+        """
+        Sample a batch from memory and train the Q-network.
+        """
+        if len(self.memory) < self.batch_size:
+            return  # not enough samples yet
+
+        minibatch = random.sample(self.memory, self.batch_size)
+
+        states = np.zeros((self.batch_size, self.state_size), dtype=np.float32)
+        targets = np.zeros((self.batch_size, self.action_size), dtype=np.float32)
+
+        for i, (state, action, reward, next_state, done) in enumerate(minibatch):
+            # Current Q-values
+            target = self.model.predict(state[np.newaxis, :], verbose=0)[0]
+
+            if done:
+                target[action] = reward
+            else:
+                # Q-learning target: r + gamma * max_a' Q(s', a')
+                next_q = self.model.predict(next_state[np.newaxis, :], verbose=0)[0]
+                target[action] = reward + self.gamma * np.max(next_q)
+
+            states[i] = state
+            targets[i] = target
+
+        # Train the network on this batch
+        self.model.fit(states, targets, epochs=1, verbose=0)
+
+        # Decay exploration rate
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+
+# -----------------------------
+# Training Loop
+# -----------------------------
+def train_pirate_agent(
+    episodes=500,
+    grid_size=5,
+    max_steps=50,
+    render_interval=50,
+):
+    """
+    Train the pirate DQN agent in the treasure environment.
+
+    Args:
+        episodes (int): number of training episodes
+        grid_size (int): size of the grid world
+        max_steps (int): max steps per episode
+        render_interval (int): how often to print progress to console
+    """
+    env = PirateTreasureEnv(grid_size=grid_size, max_steps=max_steps)
+
+    state_size = 2  # [normalized_row, normalized_col]
+    action_size = env.action_space_n
+
+    agent = DQNAgent(
+        state_size=state_size,
+        action_size=action_size,
+        learning_rate=0.001,
+        gamma=0.99,
+        epsilon=1.0,
+        epsilon_min=0.01,
+        epsilon_decay=0.995,
+        batch_size=64,
+        memory_size=5000,
+    )
+
+    reward_history = []
+
+    for episode in range(1, episodes + 1):
+        state = env.reset()
+        total_reward = 0
+
+        for step in range(max_steps):
+            # Agent selects action
+            action = agent.act(state)
+
+            # Environment responds
+            next_state, reward, done, _ = env.step(action)
+
+            # Store experience and learn
+            agent.remember(state, action, reward, next_state, done)
+            agent.replay()
+
+            state = next_state
+            total_reward += reward
+
+            if done:
+                break
+
+        reward_history.append(total_reward)
+
+        # Logging
+        if episode % render_interval == 0:
+            avg_reward = np.mean(reward_history[-render_interval:])
+            print(
+                f"Episode {episode}/{episodes} - "
+                f"Total Reward: {total_reward:.2f}, "
+                f"Average Reward (last {render_interval}): {avg_reward:.2f}, "
+                f"Epsilon: {agent.epsilon:.3f}"
+            )
+
+    print("Training finished.")
+    return agent, reward_history
+
+
+if __name__ == "__main__":
+    # When you run this file directly, it will train the pirate agent.
+    # For your CS 370 ePortfolio, you can show:
+    # - The structure of the environment
+    # - The DQNAgent class
+    # - Key hyperparameters and how they affect learning
+    # - Sample training output
+    trained_agent, rewards = train_pirate_agent(
+        episodes=300,  # can increase for better training
+        grid_size=5,
+        max_steps=40,
+        render_interval=25,
+    )
