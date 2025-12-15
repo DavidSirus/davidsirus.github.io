@@ -1,0 +1,187 @@
+"""
+CS 340 – CRUD Module + Dash Dashboard
+Author: David Sirus
+Description:
+    This file reconstructs the key code used in CS 340:
+    - The AnimalShelter CRUD class (PyMongo)
+    - Example usage section for Jupyter Notebook
+    - Dash dashboard skeleton used in Project Two
+
+"""
+
+# -----------------------------------------------------------
+# 1. CRUD MODULE (animal_shelter.py)
+# -----------------------------------------------------------
+
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+
+class AnimalShelter:
+    """
+    CRUD operations for the AAC MongoDB database.
+    """
+
+    def __init__(self, username, password, host='localhost', port=27017, db='AAC', collection='animals'):
+        """
+        Initialize connection to MongoDB with authentication.
+        """
+        self.client = MongoClient(f"mongodb://{username}:{password}@{host}:{port}/?authMechanism=DEFAULT")
+        self.database = self.client[db]
+        self.collection = self.database[collection]
+
+    # C: Create
+    def create(self, data):
+        """
+        Inserts a document into the AAC collection.
+        Returns True if insert is successful.
+        """
+        if data is None or type(data) is not dict:
+            return False
+
+        result = self.collection.insert_one(data)
+        return str(result.inserted_id)
+
+    # R: Read
+    def read(self, query):
+        """
+        Reads documents from AAC that match the query.
+        Returns a cursor object.
+        """
+        if query is None or type(query) is not dict:
+            query = {}
+
+        return list(self.collection.find(query))
+
+    # U: Update
+    def update(self, query, new_values):
+        """
+        Updates documents matching the query.
+        Returns count of modified documents.
+        """
+        if query is None or new_values is None:
+            return 0
+
+        result = self.collection.update_many(query, {"$set": new_values})
+        return result.modified_count
+
+    # D: Delete
+    def delete(self, query):
+        """
+        Deletes documents matching the query.
+        Returns count of deleted documents.
+        """
+        if query is None:
+            return 0
+
+        result = self.collection.delete_many(query)
+        return result.deleted_count
+
+
+# -----------------------------------------------------------
+# 2. EXAMPLE JUPYTER NOTEBOOK USAGE
+# -----------------------------------------------------------
+
+"""
+# In your Jupyter Notebook:
+
+from animal_shelter import AnimalShelter
+
+# Initialize with credentials
+shelter = AnimalShelter("aacuser", "password123", host="localhost", port=27017)
+
+# Create example
+new_animal = {
+    "age_upon_outcome": "4 years",
+    "animal_type": "Dog",
+    "breed": "German Shepherd",
+    "color": "Black",
+    "name": "Shadow",
+    "outcome_type": "Adoption"
+}
+inserted_id = shelter.create(new_animal)
+
+# Read example
+results = shelter.read({"animal_type": "Dog"})
+
+# Update example
+modified = shelter.update({"name": "Shadow"}, {"color": "Black/Tan"})
+
+# Delete example
+deleted = shelter.delete({"name": "Shadow"})
+
+"""
+
+# -----------------------------------------------------------
+# 3. DASH DASHBOARD (Simplified Reconstruction)
+# -----------------------------------------------------------
+
+import dash
+from dash import dcc, html, Input, Output
+import dash_table
+import pandas as pd
+
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    html.H1("Grazioso Salvare - Animal Dashboard"),
+
+    dcc.Input(
+        id='query-input',
+        type='text',
+        placeholder='Enter a MongoDB query (JSON)...'
+    ),
+
+    html.Button('Run Query', id='run-query', n_clicks=0),
+
+    html.Hr(),
+
+    dash_table.DataTable(
+        id='table',
+        page_size=10,
+        style_table={'overflowX': 'auto'}
+    ),
+
+    html.Hr(),
+
+    dcc.Graph(id='location-map')
+])
+
+
+@app.callback(
+    [Output('table', 'data'),
+     Output('table', 'columns'),
+     Output('location-map', 'figure')],
+    [Input('run-query', 'n_clicks')],
+    [Input('query-input', 'value')]
+)
+def update_output(n_clicks, query_text):
+    from animal_shelter import AnimalShelter
+
+    shelter = AnimalShelter("aacuser", "password123")
+
+    # Parse query JSON
+    try:
+        query = eval(query_text) if query_text else {}
+    except:
+        query = {}
+
+    results = shelter.read(query)
+    df = pd.DataFrame(results)
+
+    if '_id' in df.columns:
+        df['_id'] = df['_id'].astype(str)
+
+    fig = {
+        "data": [{
+            "lat": df.get("location_lat", []),
+            "lon": df.get("location_long", []),
+            "type": "scattergeo"
+        }],
+        "layout": {"title": "Animal Locations"}
+    }
+
+    return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns], fig
+
+
+if __name__ == "__main__":
+    app.run_server(debug=False)
