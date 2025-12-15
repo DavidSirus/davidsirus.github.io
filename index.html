@@ -4,236 +4,205 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>David Sirus | CS 499 ePortfolio</title>
+
   <style>
-    :root {
-      --border: #e6e6e6;
-      --muted: #555;
-      --bg: #fafafa;
-      --link: #0b5bd3;
-    }
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      line-height: 1.6;
-      background: #fff;
+      background: #ffffff;
       color: #111;
+      line-height: 1.6;
     }
     header {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 28px 18px;
+      padding: 28px 16px;
+      border-bottom: 1px solid #e6e6e6;
+      background: #fafafa;
       text-align: center;
     }
-    header h1 { margin: 0 0 6px 0; }
-    header p { margin: 0; color: var(--muted); }
+    header h1 {
+      margin: 0 0 6px 0;
+    }
+    header p {
+      margin: 0;
+      color: #555;
+    }
     nav {
       margin-top: 14px;
       display: flex;
-      flex-wrap: wrap;
       justify-content: center;
+      flex-wrap: wrap;
       gap: 10px;
     }
     nav a {
       text-decoration: none;
-      color: var(--link);
-      font-weight: 700;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
+      color: #0b5bd3;
+      font-weight: bold;
+      border: 1px solid #e6e6e6;
+      padding: 8px 12px;
       border-radius: 10px;
       background: #fff;
     }
-    nav a:hover { background: #f3f6ff; }
+    nav a:hover {
+      background: #f3f6ff;
+    }
     main {
       max-width: 980px;
-      margin: 0 auto;
-      padding: 22px 18px 40px;
+      margin: auto;
+      padding: 24px 16px 40px;
     }
     section {
-      margin-top: 22px;
+      margin-top: 24px;
       padding: 18px;
-      border: 1px solid var(--border);
+      border: 1px solid #e6e6e6;
       border-radius: 14px;
       background: #fff;
     }
-    h2 { margin: 0 0 10px 0; }
-    .muted { color: var(--muted); }
+    h2 {
+      margin-top: 0;
+    }
+    .muted {
+      color: #555;
+    }
     .grid {
       display: grid;
-      gap: 14px;
+      gap: 16px;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      margin-top: 10px;
     }
     .card {
-      border: 1px solid var(--border);
+      border: 1px solid #e6e6e6;
       border-radius: 14px;
       padding: 14px;
-      background: #fff;
-    }
-    .card h3 { margin: 0 0 8px 0; }
-    ul { padding-left: 18px; }
-    a { color: var(--link); }
-    code {
-      background: #f4f4f4;
-      padding: 2px 6px;
-      border-radius: 6px;
     }
     footer {
       text-align: center;
       padding: 18px;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      background: #fff;
+      border-top: 1px solid #e6e6e6;
+      color: #555;
     }
   </style>
 </head>
 
 <body>
-  <header>
-    <h1>David Sirus — CS 499 ePortfolio</h1>
-    <p>B.S. Computer Science | Southern New Hampshire University</p>
-    <nav>
-      <a href="#self">Self-Assessment</a>
-      <a href="#code-review">Code Review</a>
-      <a href="#artifacts">Artifacts</a>
-      <a href="#narratives">Narratives</a>
-      <a href="#files">Quick Links</a>
-    </nav>
-  </header>
 
-  <main>
-    <!-- SELF-ASSESSMENT -->
-    <section id="self">
-      <h2>Professional Self-Assessment</h2>
-      <p class="muted">
-        This section serves as the introduction to my CS 499 ePortfolio. It summarizes my growth
-        throughout the Computer Science program, including collaboration, communication, algorithms,
-        software engineering, databases, and security.
-      </p>
-      <p>
-        <strong>Document:</strong>
-        <a href="assets/docs/Self_Assessment.pdf">Self_Assessment.pdf</a>
-      </p>
-    </section>
+<header>
+  <h1>David Sirus — CS 499 ePortfolio</h1>
+  <p>B.S. Computer Science | Southern New Hampshire University</p>
+  <nav>
+    <a href="#self">Self-Assessment</a>
+    <a href="#code-review">Code Review</a>
+    <a href="#artifacts">Artifacts</a>
+    <a href="#narratives">Narratives</a>
+  </nav>
+</header>
 
-    <!-- CODE REVIEW -->
-    <section id="code-review">
-      <h2>Informal Code Review Video</h2>
-      <p class="muted">
-        This video presents an informal code review completed prior to implementing enhancements.
-        It explains existing functionality, identifies improvement areas, and outlines planned enhancements
-        aligned with course outcomes.
-      </p>
+<main>
 
-      <p>
-        <strong>Video Link:</strong>
-        <a href="https://youtu.be/SskwWMY8REQ" target="_blank" rel="noopener">
-          Watch Code Review
+  <section id="self">
+    <h2>Professional Self-Assessment</h2>
+    <p class="muted">
+      This self-assessment reflects my growth throughout the Computer Science program, including
+      collaboration, communication, algorithmic problem solving, software engineering, databases,
+      and security awareness.
+    </p>
+    <p>
+      <a href="assets/docs/Self_Assessment.pdf">View Self-Assessment (PDF)</a>
+    </p>
+  </section>
+
+  <section id="code-review">
+    <h2>Informal Code Review Video</h2>
+    <p class="muted">
+      This video presents an informal code review conducted prior to implementing enhancements.
+    </p>
+    <p>
+      <a href="https://youtu.be/SskwWMY8REQ" target="_blank" rel="noopener">
+        Watch Code Review Video
+      </a>
+    </p>
+  </section>
+
+  <section id="artifacts">
+    <h2>Enhanced Artifacts (Original vs Enhanced)</h2>
+
+    <div class="grid">
+
+      <div class="card">
+        <h3>Software Design & Engineering (CS 465)</h3>
+        <ul>
+          <li>
+            <a href="artifacts/software-design-engineering/original/CS465_Full_Project_Original.txt">
+              Original Implementation (TXT)
+            </a>
+          </li>
+          <li>
+            <a href="artifacts/software-design-engineering/enhanced/CS465_Full_Project.txt">
+              Enhanced Implementation (TXT)
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Algorithms & Data Structures (CS 370)</h3>
+        <ul>
+          <li>
+            <a href="artifacts/algorithms-data-structures/original/CS370_Pirate_DQN_Original.txt">
+              Original Implementation (TXT)
+            </a>
+          </li>
+          <li>
+            <a href="artifacts/algorithms-data-structures/enhanced/CS370_Pirate_DQN.txt">
+              Enhanced Implementation (TXT)
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Databases (CS 340)</h3>
+        <ul>
+          <li>
+            <a href="artifacts/databases/original/CS340_Code_Original.txt">
+              Original Implementation (TXT)
+            </a>
+          </li>
+          <li>
+            <a href="artifacts/databases/enhanced/CS340_Code.txt">
+              Enhanced Implementation (TXT)
+            </a>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="narratives">
+    <h2>Enhancement Narratives</h2>
+    <ul>
+      <li>
+        <a href="assets/docs/Narrative_Enhancement1_Software_Design.pdf">
+          Enhancement 1 – Software Design & Engineering
         </a>
-      </p>
+      </li>
+      <li>
+        <a href="assets/docs/Narrative_Enhancement2_Algorithms.pdf">
+          Enhancement 2 – Algorithms & Data Structures
+        </a>
+      </li>
+      <li>
+        <a href="assets/docs/Narrative_Enhancement3_Databases.pdf">
+          Enhancement 3 – Databases
+        </a>
+      </li>
+    </ul>
+  </section>
 
-      <p class="muted">
-        
-      </p>
-    </section>
+</main>
 
-    <!-- ARTIFACTS -->
-    <section id="artifacts">
-  <h2>Enhanced Artifacts (Original vs Enhanced)</h2>
-  <p class="muted">
-    Each artifact includes the original submission and an enhanced version demonstrating growth
-    in design, algorithms, and database integration.
-  </p>
+<footer>
+  © David Sirus — CS 499 ePortfolio
+</footer>
 
-  <div class="grid">
-    <div class="card">
-      <h3>Software Design & Engineering (CS 465)</h3>
-      <ul>
-        <li>
-          <a href="artifacts/software-design-engineering/original/CS465_Full_Project_Original.txt">
-            Original (TXT)
-          </a>
-        </li>
-        <li>
-          <a href="artifacts/software-design-engineering/enhanced/CS465_Full_Project.txt">
-            Enhanced (TXT)
-          </a>
-        </li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h3>Algorithms & Data Structures (CS 370)</h3>
-      <ul>
-        <li>
-          <a href="artifacts/algorithms-data-structures/original/CS370_Pirate_DQN_Original.txt">
-            Original (TXT)
-          </a>
-        </li>
-        <li>
-          <a href="artifacts/algorithms-data-structures/enhanced/CS370_Pirate_DQN.txt">
-            Enhanced (TXT)
-          </a>
-        </li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h3>Databases (CS 340)</h3>
-      <ul>
-        <li>
-          <a href="artifacts/databases/original/CS340_Code_Original.txt">
-            Original (TXT)
-          </a>
-        </li>
-        <li>
-          <a href="artifacts/databases/enhanced/CS340_Code.txt">
-            Enhanced (TXT)
-          </a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-    <!-- NARRATIVES -->
-    <section id="narratives">
-      <h2>Enhancement Narratives</h2>
-      <p class="muted">
-        Each narrative explains the artifact’s purpose, why it was selected, what enhancements were implemented,
-        what skills were demonstrated, and how the work aligns with the CS 499 course outcomes.
-      </p>
-
-      <ul>
-        <li>
-          <strong>Enhancement 1 (Software Design & Engineering):</strong>
-          <a href="assets/docs/Narrative_Enhancement1_Software_Design.pdf">Narrative_Enhancement1_Software_Design.pdf</a>
-        </li>
-        <li>
-          <strong>Enhancement 2 (Algorithms & Data Structures):</strong>
-          <a href="assets/docs/Narrative_Enhancement2_Algorithms.pdf">Narrative_Enhancement2_Algorithms.pdf</a>
-        </li>
-        <li>
-          <strong>Enhancement 3 (Databases):</strong>
-          <a href="assets/docs/Narrative_Enhancement3_Databases.pdf">Narrative_Enhancement3_Databases.pdf</a>
-        </li>
-      </ul>
-    </section>
-
-    <!-- QUICK LINKS -->
-    <section id="files">
-      <h2>Quick Links</h2>
-      <ul>
-        <li><a href="assets/docs/">All Documents Folder (assets/docs)</a></li>
-        <li><a href="artifacts/">All Artifacts Folder (artifacts)</a></li>
-      </ul>
-      <p class="muted">
-       
-      </p>
-    </section>
-  </main>
-
-  <footer>
-    © David Sirus — CS 499 ePortfolio
-  </footer>
 </body>
 </html>
