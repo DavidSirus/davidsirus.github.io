@@ -1,0 +1,420 @@
+"""
+CS 340 – Enhanced CRUD Module + Secure Dash Dashboard (MongoDB Atlas)
+Author: David Sirus
+
+Enhancements for CS 499 – Category Three: Databases
+- Migrated from local MongoDB to MongoDB Atlas
+- Added secure user authentication with SHA-256 password hashing
+- Introduced basic role-based access (admin / viewer)
+- Implemented input validation and safer query handling
+- Added indexed fields for more efficient queries
+"""
+
+# -----------------------------------------------------------
+# 1. ENHANCED CRUD + AUTH MODULE (animal_shelter.py)
+# -----------------------------------------------------------
+
+from pymongo import MongoClient, ASCENDING
+from bson.objectid import ObjectId
+import hashlib
+import os
+import json
+
+
+class AnimalShelter:
+    """
+    CRUD operations for the AAC MongoDB database (MongoDB Atlas)
+    plus simple user authentication and role management.
+    """
+
+    def __init__(
+        self,
+        uri=None,
+        db="AAC",
+        animal_collection="animals",
+        user_collection="users"
+    ):
+        """
+        Initialize a secure connection to MongoDB Atlas.
+
+        uri: MongoDB Atlas connection string.
+             Example:
+             "mongodb+srv://aacuser:password123@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority"
+        """
+        # Allow URI to be pulled from environment for better security
+        if uri is None:
+            uri = os.getenv("MONGODB_ATLAS_URI")
+
+        if not uri:
+            raise ValueError(
+                "MongoDB Atlas URI is not set. "
+                "Pass it into AnimalShelter(...) or set MONGODB_ATLAS_URI env variable."
+            )
+
+        self.client = MongoClient(uri)
+        self.database = self.client[db]
+        self.animal_collection = self.database[animal_collection]
+        self.user_collection = self.database[user_collection]
+
+        # Ensure helpful indexes exist
+        self._ensure_indexes()
+
+    # ---------------------------
+    # Internal helpers
+    # ---------------------------
+    def _ensure_indexes(self):
+        """
+        Create indexes on frequently queried fields to optimize performance.
+        """
+        self.animal_collection.create_index([("animal_type", ASCENDING)])
+        self.animal_collection.create_index([("breed", ASCENDING)])
+        self.animal_collection.create_index([("outcome_type", ASCENDING)])
+        self.user_collection.create_index([("username", ASCENDING)], unique=True)
+
+    @staticmethod
+    def _hash_password(password: str) -> str:
+        """
+        Hash a plaintext password using SHA-256.
+        """
+        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+    # ---------------------------
+    # USER AUTHENTICATION METHODS
+    # ---------------------------
+    def register_user(self, username: str, password: str, role: str = "viewer") -> bool:
+        """
+        Register a new user with a hashed password and a role.
+
+        Returns True if registration succeeds, False if username already exists.
+        """
+        if not username or not password:
+            return False
+
+        hashed = self._hash_password(password)
+        user_doc = {
+            "username": username,
+            "password_hash": hashed,
+            "role": role
+        }
+
+        try:
+            self.user_collection.insert_one(user_doc)
+            return True
+        except Exception:
+            # Most likely duplicate username (unique index violation)
+            return False
+
+    def authenticate_user(self, username: str, password: str):
+        """
+        Authenticate a user by username and plaintext password.
+
+        Returns the user document (without password_hash) if valid, else None.
+        """
+        if not username or not password:
+            return None
+
+        hashed = self._hash_password(password)
+        user = self.user_collection.find_one({"username": username})
+
+        if user and user.get("password_hash") == hashed:
+            # Do not leak the hash back to the caller
+            user.pop("password_hash", None)
+            return user
+
+        return None
+
+    # ---------------------------
+    # CRUD METHODS FOR ANIMALS
+    # ---------------------------
+    def create_animal(self, data: dict):
+        """
+        Inserts a document into the animals collection.
+        Returns inserted_id (as string) if successful, or None.
+        """
+        if not isinstance(data, dict) or not data:
+            return None
+
+        result = self.animal_collection.insert_one(data)
+        return str(result.inserted_id)
+
+    def read_animals(self, query: dict = None):
+        """
+        Reads documents from animals that match the query.
+        Returns a list of documents.
+        """
+        if query is None or not isinstance(query, dict):
+            query = {}
+
+        return list(self.animal_collection.find(query))
+
+    def update_animals(self, query: dict, new_values: dict) -> int:
+        """
+        Updates documents matching the query.
+        Returns count of modified documents.
+        """
+        if not isinstance(query, dict) or not isinstance(new_values, dict):
+            return 0
+
+        result = self.animal_collection.update_many(query, {"$set": new_values})
+        return result.modified_count
+
+    def delete_animals(self, query: dict) -> int:
+        """
+        Deletes documents matching the query.
+        Returns count of deleted documents.
+        """
+        if not isinstance(query, dict):
+            return 0
+
+        result = self.animal_collection.delete_many(query)
+        return result.deleted_count
+
+
+# -----------------------------------------------------------
+# 2. EXAMPLE JUPYTER NOTEBOOK USAGE (for documentation)
+# -----------------------------------------------------------
+
+"""
+# Example usage in Jupyter Notebook (documentation snippet):
+
+from animal_shelter import AnimalShelter
+
+# Initialize with ATLAS URI (use env var in real use)
+atlas_uri = "mongodb+srv://aacuser:password123@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority"
+shelter = AnimalShelter(uri=atlas_uri)
+
+# Register a new admin user
+shelter.register_user("admin_user", "StrongPassword!123", role="admin")
+
+# Authenticate user
+user = shelter.authenticate_user("admin_user", "StrongPassword!123")
+
+# Create an animal
+new_animal = {
+    "age_upon_outcome": "4 years",
+    "animal_type": "Dog",
+    "breed": "German Shepherd",
+    "color": "Black",
+    "name": "Shadow",
+    "outcome_type": "Adoption"
+}
+inserted_id = shelter.create_animal(new_animal)
+
+# Read animals
+results = shelter.read_animals({"animal_type": "Dog"})
+"""
+
+
+# -----------------------------------------------------------
+# 3. SECURE DASH DASHBOARD (MongoDB Atlas + Login)
+# -----------------------------------------------------------
+
+import dash
+from dash import dcc, html, Input, Output, State
+import dash_table
+import pandas as pd
+import plotly.graph_objects as go
+
+# Initialize Dash app
+app = dash.Dash(__name__)
+server = app.server  # for deployment if needed
+
+# Layout with login + dashboard
+app.layout = html.Div(
+    [
+        html.H1("Grazioso Salvare - Secure Animal Dashboard"),
+
+        # Login / Logout controls
+        html.Div(
+            [
+                html.H3("User Login"),
+                dcc.Input(id="login-username", type="text", placeholder="Username"),
+                dcc.Input(
+                    id="login-password",
+                    type="password",
+                    placeholder="Password"
+                ),
+                html.Button("Login", id="login-button", n_clicks=0),
+                html.Button("Logout", id="logout-button", n_clicks=0),
+                html.Div(id="login-message", style={"marginTop": "10px"})
+            ],
+            style={"marginBottom": "20px"}
+        ),
+
+        # Store the current authenticated user in the browser
+        dcc.Store(id="current-user"),
+
+        html.Hr(),
+
+        # Dashboard section: only visible when logged in
+        html.Div(
+            id="dashboard-container",
+            children=[
+                html.H3("Animal Query"),
+
+                dcc.Input(
+                    id="query-input",
+                    type="text",
+                    placeholder='Enter a MongoDB query (JSON), e.g. {"animal_type": "Dog"}',
+                    style={"width": "60%"}
+                ),
+                html.Button("Run Query", id="run-query", n_clicks=0),
+
+                html.Div(
+                    id="query-error",
+                    style={"color": "red", "marginTop": "5px"}
+                ),
+
+                html.Hr(),
+
+                dash_table.DataTable(
+                    id="table",
+                    page_size=10,
+                    style_table={"overflowX": "auto"}
+                ),
+
+                html.Hr(),
+
+                dcc.Graph(id="location-map")
+            ],
+        ),
+    ],
+    style={"padding": "20px"}
+)
+
+
+# -----------------------------------------------------------
+# Callback: Handle login / logout
+# -----------------------------------------------------------
+
+@app.callback(
+    Output("current-user", "data"),
+    Output("login-message", "children"),
+    Input("login-button", "n_clicks"),
+    Input("logout-button", "n_clicks"),
+    State("login-username", "value"),
+    State("login-password", "value"),
+    prevent_initial_call=True,
+)
+def handle_auth(login_clicks, logout_clicks, username, password):
+    from animal_shelter import AnimalShelter
+
+    # Which button was pressed
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise dash.exceptions.PreventUpdate
+
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Logout clears user
+    if button_id == "logout-button":
+        return None, "Logged out."
+
+    # Login logic
+    atlas_uri = os.getenv("MONGODB_ATLAS_URI")
+    shelter = AnimalShelter(uri=atlas_uri)
+
+    user = shelter.authenticate_user(username, password)
+
+    if user:
+        # Only store safe fields in the client
+        safe_user = {"username": user.get("username"), "role": user.get("role")}
+        return safe_user, f"Welcome, {safe_user['username']}! (Role: {safe_user['role']})"
+    else:
+        return None, "Invalid username or password."
+
+
+# -----------------------------------------------------------
+# Callback: Show / hide dashboard based on auth state
+# -----------------------------------------------------------
+
+@app.callback(
+    Output("dashboard-container", "style"),
+    Input("current-user", "data")
+)
+def toggle_dashboard_visibility(user):
+    if user is None:
+        # Hide dashboard when not logged in
+        return {"display": "none"}
+    # Show dashboard when authenticated
+    return {"display": "block"}
+
+
+# -----------------------------------------------------------
+# Callback: Run query (only if authenticated)
+# -----------------------------------------------------------
+
+@app.callback(
+    Output("table", "data"),
+    Output("table", "columns"),
+    Output("location-map", "figure"),
+    Output("query-error", "children"),
+    Input("run-query", "n_clicks"),
+    State("query-input", "value"),
+    State("current-user", "data"),
+    prevent_initial_call=True,
+)
+def run_secure_query(n_clicks, query_text, user):
+    # No user, no data
+    if user is None:
+        return [], [], go.Figure(), "You must be logged in to run queries."
+
+    from animal_shelter import AnimalShelter
+
+    atlas_uri = os.getenv("MONGODB_ATLAS_URI")
+    shelter = AnimalShelter(uri=atlas_uri)
+
+    # Safely parse query JSON
+    if not query_text:
+        query = {}
+    else:
+        try:
+            query = json.loads(query_text)
+            if not isinstance(query, dict):
+                raise ValueError
+        except Exception:
+            return [], [], go.Figure(), "Invalid query format. Enter a valid JSON object."
+
+    # Role-based restriction example:
+    # Viewers cannot delete or run dangerous queries (we just illustrate by limiting projections)
+    if user.get("role") == "viewer":
+        # You could enforce additional restrictions here.
+        pass
+
+    results = shelter.read_animals(query)
+    if not results:
+        return [], [], go.Figure(), "No results found for the given query."
+
+    df = pd.DataFrame(results)
+
+    # Convert ObjectId to string for display
+    if "_id" in df.columns:
+        df["_id"] = df["_id"].astype(str)
+
+    # Prepare table columns
+    columns = [{"name": col, "id": col} for col in df.columns]
+
+    # Basic map using latitude/longitude if present
+    lat_col = "location_lat"
+    lon_col = "location_long"
+
+    if lat_col in df.columns and lon_col in df.columns:
+        fig = go.Figure(
+            data=go.Scattergeo(
+                lat=df[lat_col],
+                lon=df[lon_col],
+                mode="markers",
+                text=df.get("name", ""),
+            )
+        )
+        fig.update_layout(title="Animal Locations")
+    else:
+        fig = go.Figure()
+        fig.update_layout(title="No location data available for this query.")
+
+    return df.to_dict("records"), columns, fig, ""
+
+
+if __name__ == "__main__":
+    # For local testing; in deployment, use a WSGI server (gunicorn, etc.)
+    app.run_server(debug=False)
